@@ -1,177 +1,25 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8" />
-  <title>Stocks — Indices & Supports</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="UTF-8">
+  <title>Stocks - Sélection</title>
   <style>
-    :root { --gap: 12px; --card-bg:#fff; --card-br:10px; --border:#e5e7eb; --text:#111827; --muted:#6b7280; --bg:#f7f7f8; }
-    * { box-sizing: border-box; }
-    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; color:var(--text); background:var(--bg); }
-    header { position:sticky; top:0; z-index:10; background:#fff; border-bottom:1px solid var(--border); }
-    .bar { max-width:1200px; margin:0 auto; padding:10px 16px; display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
-    .tabs a { text-decoration:none; color:var(--text); padding:8px 12px; border:1px solid var(--border); border-radius:999px; background:#fff; }
-    .tabs a:hover { background:#f3f4f6; }
-    .container { max-width:1200px; margin:20px auto; padding:0 16px 40px; }
-    h1 { font-size:22px; margin:12px 0 6px; }
-    h2 { font-size:18px; margin:22px 0 8px; }
-    p.note { color:var(--muted); font-size:13px; margin:0 0 16px; }
-    section { display:none; }
-    section.active { display:block; }
-
-    .grid { display:grid; gap:var(--gap); }
-    .grid.cols-1 { grid-template-columns: 1fr; }
-    .grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
-    .grid.cols-4 { grid-template-columns: repeat(2, 1fr); }       /* 2x2 par défaut (plus lisible en TV) */
-    @media (min-width: 1200px) {
-      .grid.cols-4 { grid-template-columns: repeat(4, 1fr); }     /* 4 colonnes sur grand écran */
-    }
-
-    .card { background:var(--card-bg); border:1px solid var(--border); border-radius:var(--card-br); overflow:hidden; position:relative; }
-    .chart-wrap { position:relative; width:100%; aspect-ratio: 16 / 10; }
-    iframe { position:absolute; inset:0; width:100%; height:100%; border:0; }
-
-    .hint { font-size:12px; color:var(--muted); margin:8px 2px 18px; }
-    .kbd { font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:12px; padding:2px 6px; border:1px solid var(--border); border-radius:6px; background:#fafafa; }
-
-    /* Plein écran: on enlève les arrondis/ombres pour coller bord à bord */
-    .card:fullscreen, .card:-webkit-full-screen { border-radius:0; border:none; }
+    body { font-family: Arial, sans-serif; background: #111; color: #eee; text-align: center; }
+    h1 { margin: 20px 0; }
+    ul { list-style: none; padding: 0; }
+    li { margin: 15px 0; }
+    a { color: #0ff; text-decoration: none; font-size: 1.5em; }
+    a:hover { color: #fff; }
   </style>
 </head>
 <body>
-
-<header>
-  <div class="bar">
-    <strong>📈 Stocks — Indices & Supports</strong>
-    <nav class="tabs" style="margin-left:auto; display:flex; gap:6px; flex-wrap:wrap;">
-      <a href="#us">US</a>
-      <a href="#fr">France</a>
-      <a href="#eu">Europe</a>
-      <a href="#asia">Asie</a>
-    </nav>
-  </div>
-</header>
-
-<div class="container">
-  <p class="note">Astuce : clique sur n’importe quel graphique pour le passer <b>plein écran</b>. Appuie sur <span class="kbd">Échap</span> pour quitter.</p>
-
-  <!-- ========================= US ========================= -->
-  <section id="us" class="active">
-    <h1>🇺🇸 US</h1>
-
-    <h2>Indices (4)</h2>
-    <div class="grid cols-4">
-      <div class="card chart" data-url="https://s.tradingview.com/widgetembed/?symbol=SP%3ASPX&interval=15&hidesidetoolbar=1"></div>
-      <div class="card chart" data-url="https://s.tradingview.com/widgetembed/?symbol=NASDAQ%3ANDX&interval=15&hidesidetoolbar=1"></div>
-      <div class="card chart" data-url="https://s.tradingview.com/widgetembed/?symbol=TVC%3ADJI&interval=15&hidesidetoolbar=1"></div>
-      <div class="card chart" data-url="https://s.tradingview.com/widgetembed/?symbol=TVC%3ARUT&interval=15&hidesidetoolbar=1"></div>
-    </div>
-    <div class="hint">S&P 500, Nasdaq 100, Dow Jones, Russell 2000.</div>
-
-    <h2>Supports majeurs (4)</h2>
-    <div class="grid cols-4">
-      <div class="card chart" data-url="https://s.tradingview.com/widgetembed/?symbol=NASDAQ%3AAAPL&interval=15&hidesidetoolbar=1"></div>
-      <div class="card chart" data-url="https://s.tradingview.com/widgetembed/?symbol=NASDAQ%3AMSFT&interval=15&hidesidetoolbar=1"></div>
-      <div class="card chart" data-url="https://s.tradingview.com/widgetembed/?symbol=NASDAQ%3ANVDA&interval=15&hidesidetoolbar=1"></div>
-      <div class="card chart" data-url="https://s.tradingview.com/widgetembed/?symbol=NASDAQ%3ATSLA&interval=15&hidesidetoolbar=1"></div>
-    </div>
-  </section>
-
-  <!-- ========================= FRANCE ========================= -->
-  <section id="fr">
-    <h1>🇫🇷 France</h1>
-
-    <h2>Indice (1)</h2>
-    <div class="grid cols-1">
-      <div class="card chart" data-url="https://s.tradingview.com/widgetembed/?symbol=EURONEXT%3APX1&interval=15&hidesidetoolbar=1"></div>
-    </div>
-    <div class="hint">CAC 40.</div>
-
-    <h2>Supports (4)</h2>
-    <div class="grid cols-4">
-      <div class="card chart" data-url="https://s.tradingview.com/widgetembed/?symbol=EURONEXT%3AMC&interval=15&hidesidetoolbar=1"></div>   <!-- LVMH -->
-      <div class="card chart" data-url="https://s.tradingview.com/widgetembed/?symbol=EURONEXT%3AOR&interval=15&hidesidetoolbar=1"></div>   <!-- L'Oréal -->
-      <div class="card chart" data-url="https://s.tradingview.com/widgetembed/?symbol=EURONEXT%3AACA&interval=15&hidesidetoolbar=1"></div>  <!-- Crédit Agricole -->
-      <div class="card chart" data-url="https://s.tradingview.com/widgetembed/?symbol=EURONEXT%3AENGI&interval=15&hidesidetoolbar=1"></div> <!-- Engie -->
-    </div>
-  </section>
-
-  <!-- ========================= EUROPE ========================= -->
-  <section id="eu">
-    <h1>🇪🇺 Europe</h1>
-
-    <h2>Indices (2)</h2>
-    <div class="grid cols-2">
-      <div class="card chart" data-url="https://s.tradingview.com/widgetembed/?symbol=INDEXSTOXX%3ASX5E&interval=15&hidesidetoolbar=1"></div> <!-- Euro Stoxx 50 -->
-      <div class="card chart" data-url="https://s.tradingview.com/widgetembed/?symbol=XETR%3ADAX&interval=15&hidesidetoolbar=1"></div>       <!-- DAX -->
-    </div>
-
-    <h2>Supports (2)</h2>
-    <div class="grid cols-2">
-      <div class="card chart" data-url="https://s.tradingview.com/widgetembed/?symbol=XETR%3ASIE&interval=15&hidesidetoolbar=1"></div>   <!-- Siemens -->
-      <div class="card chart" data-url="https://s.tradingview.com/widgetembed/?symbol=LSE%3AASTRAZENECA&interval=15&hidesidetoolbar=1"></div> <!-- AstraZeneca (AZN peut varier) -->
-    </div>
-  </section>
-
-  <!-- ========================= ASIE ========================= -->
-  <section id="asia">
-    <h1>🌏 Asie</h1>
-
-    <h2>Indices (4)</h2>
-    <div class="grid cols-4">
-      <div class="card chart" data-url="https://s.tradingview.com/widgetembed/?symbol=TVC%3ANI225&interval=15&hidesidetoolbar=1"></div>  <!-- Nikkei 225 -->
-      <div class="card chart" data-url="https://s.tradingview.com/widgetembed/?symbol=HSI%3AHSI&interval=15&hidesidetoolbar=1"></div>    <!-- Hang Seng -->
-      <div class="card chart" data-url="https://s.tradingview.com/widgetembed/?symbol=SSE%3A000300&interval=15&hidesidetoolbar=1"></div> <!-- CSI 300 -->
-      <div class="card chart" data-url="https://s.tradingview.com/widgetembed/?symbol=TWSE%3ATAIEX&interval=15&hidesidetoolbar=1"></div> <!-- TAIEX -->
-    </div>
-
-    <h2>Supports (2)</h2>
-    <div class="grid cols-2">
-      <div class="card chart" data-url="https://s.tradingview.com/widgetembed/?symbol=TSE%3A7203&interval=15&hidesidetoolbar=1"></div>  <!-- Toyota -->
-      <div class="card chart" data-url="https://s.tradingview.com/widgetembed/?symbol=HKEX%3A0700&interval=15&hidesidetoolbar=1"></div> <!-- Tencent -->
-    </div>
-  </section>
-</div>
-
-<script>
-  // --- util: créer un iframe dans chaque .chart à partir de data-url
-  function mountIframes(){
-    document.querySelectorAll('.chart').forEach(card => {
-      if (card.dataset.mounted) return;
-      const url = card.getAttribute('data-url');
-      const wrap = document.createElement('div');
-      wrap.className = 'chart-wrap';
-      const ifr = document.createElement('iframe');
-      ifr.src = url;
-      ifr.loading = 'lazy';
-      wrap.appendChild(ifr);
-      card.appendChild(wrap);
-      card.dataset.mounted = '1';
-
-      // Plein écran au clic sur la "carte"
-      card.addEventListener('click', (e) => {
-        // éviter d'attraper un clic venant d'un menu interne éventuel de l'iframe
-        if (document.fullscreenElement) return document.exitFullscreen();
-        if (card.requestFullscreen) card.requestFullscreen();
-        else if (card.webkitRequestFullscreen) card.webkitRequestFullscreen(); // Safari
-      });
-    });
-  }
-
-  // --- navigation via #hash (US/FR/EU/ASIA)
-  function showSectionFromHash() {
-    const hash = (location.hash || '#us').toLowerCase();
-    document.querySelectorAll('section').forEach(s => s.classList.remove('active'));
-    const target = document.querySelector(hash) || document.querySelector('#us');
-    target.classList.add('active');
-    mountIframes(); // monte au besoin
-  }
-
-  window.addEventListener('hashchange', showSectionFromHash);
-  window.addEventListener('load', () => {
-    showSectionFromHash();
-  });
-</script>
-
+  <h1>📈 Actions par Région</h1>
+  <ul>
+    <li><a href="stocks_us.html">🇺🇸 USA</a></li>
+    <li><a href="stocks_fr.html">🇫🇷 France</a></li>
+    <li><a href="stocks_europe.html">🇪🇺 Europe</a></li>
+    <li><a href="stocks_asia.html">🌏 Asie</a></li>
+  </ul>
+  <p><a href="index.html">⬅️ Retour au menu principal</a></p>
 </body>
 </html>
