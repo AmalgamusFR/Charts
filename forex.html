@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Forex</title>
+  <style>
+    body { margin: 0; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 50vh 50vh; height: 100vh; background: #111; }
+    iframe { width: 100%; height: 100%; border: none; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <!-- EUR/USD -->
+  <iframe src="https://s.tradingview.com/widgetembed/?symbol=FX:EURUSD&interval=15&hidesidetoolbar=1"></iframe>
+
+  <!-- GBP/USD -->
+  <iframe src="https://s.tradingview.com/widgetembed/?symbol=FX:GBPUSD&interval=15&hidesidetoolbar=1"></iframe>
+
+  <!-- USD/JPY -->
+  <iframe src="https://s.tradingview.com/widgetembed/?symbol=FX:USDJPY&interval=15&hidesidetoolbar=1"></iframe>
+
+  <!-- AUD/USD -->
+  <iframe src="https://s.tradingview.com/widgetembed/?symbol=FX:AUDUSD&interval=15&hidesidetoolbar=1"></iframe>
+
+  <script>
+    document.querySelectorAll("iframe").forEach(iframe => {
+      iframe.addEventListener("click", () => {
+        if (iframe.requestFullscreen) iframe.requestFullscreen();
+        else if (iframe.webkitRequestFullscreen) iframe.webkitRequestFullscreen();
+        else if (iframe.msRequestFullscreen) iframe.msRequestFullscreen();
+      });
+    });
+  </script>
+</body>
+</html>
