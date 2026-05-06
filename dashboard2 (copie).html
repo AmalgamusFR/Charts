@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>📊 Dashboard (Canvas)</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      height: 100%;
+      width: 100%;
+      background: #0a0a0f;
+      color: #eee;
+      font-family: system-ui, sans-serif;
+      overflow: hidden;
+    }
+    #app {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+    #progress-bar {
+      position: fixed;
+      top: 0; left: 0;
+      height: 3px;
+      background: linear-gradient(90deg, #00d4aa, #00aaff);
+      z-index: 100;
+      width: 0%;
+      transition: width 12s linear;
+    }
+    #slide-title {
+      flex-shrink: 0;
+      padding: 12px 16px;
+      font-size: 36px;
+      font-weight: 700;
+      text-align: center;
+      background: rgba(0,0,0,0.4);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      text-transform: uppercase;
+    }
+    #chart-grid {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: 1fr 1fr;
+      gap: 1px;
+      background: rgba(255,255,255,0.05);
+    }
+    .chart-cell {
+      position: relative;
+      background: #0d0d15;
+    }
+    .chart-label {
+      position: absolute;
+      top: 6px; left: 10px;
+      z-index: 10;
+      font-size: 18px;
+      font-weight: 700;
+      color: #fff;
+      text-shadow: 0 0 10px rgba(0,0,0,0.8);
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+    #nav-dots {
+      position: fixed;
+      bottom: 18px; left: 50%; transform: translateX(-50%);
+      z-index: 90;
+      display: flex;
+      gap: 10px;
+      background: rgba(0,0,0,0.55);
+      backdrop-filter: blur(8px);
+      padding: 8px 16px;
+      border-radius: 20px;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: rgba(255,255,255,0.3);
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    .dot.active {
+      background: #00d4aa;
+      box-shadow: 0 0 8px rgba(0,212,170,0.6);
+      transform: scale(1.3);
+    }
+    #pause-indicator {
+      position: fixed;
+      top: 12px; right: 16px;
+      z-index: 90;
+      background: rgba(0,0,0,0.6);
+      color: #ffaa00;
+      font-size: 12px;
+      padding: 6px 12px;
+      border-radius: 16px;
+      border: 1px solid rgba(255,170,0,0.3);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    #pause-indicator.visible { opacity: 1; }
+    #debug-info {
+      position: fixed;
+      bottom: 60px; left: 50%; transform: translateX(-50%);
+      color: #aaa; font-size: 14px; z-index: 99;
+      background: rgba(0,0,0,0.7); padding: 4px 12px; border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="progress-bar"></div>
+    <div id="pause-indicator">⏸ PAUSED</div>
+    <div id="nav-dots"></div>
+    <div id="slide-title">US Indices</div>
+    <div id="chart-grid">
+      <div class="chart-cell"><div class="chart-label">S&P 500 – SPY</div><canvas></canvas></div>
+      <div class="chart-cell"><div class="chart-label">Nasdaq 100 – QQQ</div><canvas></canvas></div>
+      <div class="chart-cell"><div class="chart-label">Dow Jones – DIA</div><canvas></canvas></div>
+      <div class="chart-cell"><div class="chart-label">Russell 2000 – IWM</div><canvas></canvas></div>
+    </div>
+    <div id="debug-info">⏳ Loading...</div>
+  </div>
+
+  <script>
+    (function() {
+      'use strict';
+      console.log('⚡ Script started');
+      const debug = document.getElementById('debug-info');
+      debug.textContent = 'Script running';
+
+      // Draw mock candles on all canvases
+      const canvases = document.querySelectorAll('canvas');
+      canvases.forEach((canvas) => {
+        const ctx = canvas.getContext('2d');
+        const rect = canvas.parentElement.getBoundingClientRect();
+        const w = rect.width || 400;
+        const h = rect.height || 300;
+        canvas.width = w;
+        canvas.height = h;
+
+        // Generate 60 random walk candles
+        const bars = 60;
+        const margin = 10;
+        const candleWidth = (w - 2*margin) / bars;
+        let price = 100;
+        const data = [];
+        for (let i = 0; i < bars; i++) {
+          const open = price;
+          const change = (Math.random() - 0.5) * 8;
+          const close = open + change;
+          const high = Math.max(open, close) + Math.random() * 4;
+          const low = Math.min(open, close) - Math.random() * 4;
+          data.push({ open, high, low, close });
+          price = close;
+        }
+
+        let minPrice = Infinity, maxPrice = -Infinity;
+        data.forEach(d => {
+          if (d.low < minPrice) minPrice = d.low;
+          if (d.high > maxPrice) maxPrice = d.high;
+        });
+        const range = maxPrice - minPrice || 1;
+        const scaleY = (h - 2*margin) / range;
+
+        // Draw grid
+        ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+        ctx.lineWidth = 1;
+        for (let i = 0; i < 5; i++) {
+          const y = margin + (h - 2*margin) * i / 4;
+          ctx.beginPath(); ctx.moveTo(margin, y); ctx.lineTo(w - margin, y); ctx.stroke();
+        }
+
+        // Draw candles
+        data.forEach((d, i) => {
+          const x = margin + i * candleWidth + candleWidth/2;
+          const yLow   = margin + (maxPrice - d.low) * scaleY;
+          const yHigh  = margin + (maxPrice - d.high) * scaleY;
+          const yOpen  = margin + (maxPrice - d.open) * scaleY;
+          const yClose = margin + (maxPrice - d.close) * scaleY;
+
+          const isUp = d.close >= d.open;
+          ctx.fillStyle = isUp ? '#26a69a' : '#ef5350';
+          ctx.strokeStyle = isUp ? '#26a69a' : '#ef5350';
+          ctx.lineWidth = 1;
+
+          // wick
+          ctx.beginPath(); ctx.moveTo(x, yLow); ctx.lineTo(x, yHigh); ctx.stroke();
+
+          // body
+          const bodyTop = Math.min(yOpen, yClose);
+          const bodyBottom = Math.max(yOpen, yClose);
+          const bodyHeight = Math.max(bodyBottom - bodyTop, 1);
+          ctx.fillRect(x - candleWidth*0.2, bodyTop, candleWidth*0.4, bodyHeight);
+        });
+      });
+
+      // Progress bar animation
+      const progressBar = document.getElementById('progress-bar');
+      const slideDuration = 12000;  // 12 seconds
+      const startTime = Date.now();
+      function animateProgress() {
+        const elapsed = Date.now() - startTime;
+        const pct = Math.min(100, (elapsed / slideDuration) * 100);
+        progressBar.style.width = pct + '%';
+        if (pct < 100) requestAnimationFrame(animateProgress);
+      }
+      animateProgress();
+
+      // Build navigation dots (3 slides dummy)
+      const navDots = document.getElementById('nav-dots');
+      for (let i = 0; i < 3; i++) {
+        const dot = document.createElement('span');
+        dot.className = 'dot' + (i === 0 ? ' active' : '');
+        navDots.appendChild(dot);
+      }
+
+      debug.textContent = '✅ Dashboard ready (canvas mock)';
+      console.log('✅ Dashboard ready (canvas mock)');
+    })();
+  </script>
+</body>
+</html>

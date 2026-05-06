@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trading Dashboard — Weekly (TV JS)</title>
+
+
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0a0a0f;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      height: 100vh;
+      width: 100vw;
+      overflow: hidden;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    /* ── Progress bar ── */
+    #progress-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 3px;
+      background: linear-gradient(90deg, #00d4aa, #00aaff);
+      z-index: 100;
+      width: 0%;
+      transition: width 12s linear;
+      border-radius: 0 2px 2px 0;
+      box-shadow: 0 0 8px rgba(0,212,170,0.5);
+    }
+
+    /* ── Slides container ── */
+    #slides-container {
+      position: relative;
+      width: 100%;
+      height: 100%;
+    }
+
+    .slide {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      opacity: 0;
+      z-index: 0;
+      transition: opacity 0.6s ease;
+      pointer-events: none;
+    }
+
+    .slide.active {
+      opacity: 1;
+      z-index: 1;
+      pointer-events: auto;
+    }
+
+    /* ── Slide title ── */
+    .slide-title {
+      flex: 0 0 auto;
+      padding: 10px 16px 6px 16px;
+      font-size: 40px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      color: #fff;
+      text-align: center;
+      background: rgba(0,0,0,0.35);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      text-transform: uppercase;
+      pointer-events: none;
+    }
+
+    /* ── Chart wrapper with label ── */
+    .chart-wrapper {
+      flex: 1;
+      position: relative;
+      min-height: 0;
+    }
+
+    .chart-label {
+      position: absolute;
+      top: 8px;
+      left: 12px;
+      z-index: 10;
+      font-size: 30px;
+      font-weight: 700;
+      color: #fff;
+      text-shadow: 0 0 10px rgba(0,0,0,0.8), 0 0 4px rgba(0,0,0,0.9);
+      pointer-events: none;
+      letter-spacing: 0.03em;
+      opacity: 0.85;
+    }
+
+    .chart-wrapper iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      background: #0d0d15;
+      cursor: pointer;
+    }
+
+    .chart-container {
+      width: 100%; height: 100%;
+    }
+
+    .chart-wrapper + .chart-wrapper {
+      border-top: 1px solid rgba(255,255,255,0.06);
+    }
+
+    /* ── Navigation dots ── */
+    #nav-dots {
+      position: fixed;
+      bottom: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 90;
+      display: flex;
+      gap: 10px;
+      background: rgba(0,0,0,0.55);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      padding: 8px 16px;
+      border-radius: 20px;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.3);
+      cursor: pointer;
+      transition: background 0.3s, transform 0.3s;
+    }
+
+    .dot.active {
+      background: #00d4aa;
+      box-shadow: 0 0 8px rgba(0,212,170,0.6);
+      transform: scale(1.3);
+    }
+
+    .dot:hover {
+      background: rgba(255,255,255,0.6);
+      transform: scale(1.2);
+    }
+
+    /* ── Pause indicator ── */
+    #pause-indicator {
+      position: fixed;
+      top: 12px;
+      right: 16px;
+      z-index: 90;
+      background: rgba(0,0,0,0.55);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      color: #ffaa00;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      padding: 6px 12px;
+      border-radius: 16px;
+      border: 1px solid rgba(255,170,0,0.3);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    #pause-indicator.visible {
+      opacity: 1;
+    }
+
+    @media (max-width: 600px) {
+      .slide-title { font-size: 22px; padding: 6px 8px; }
+      .chart-label { font-size: 14px; top: 4px; left: 6px; }
+      #nav-dots { gap: 6px; padding: 6px 10px; bottom: 10px; }
+      .dot { width: 7px; height: 7px; }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="progress-bar"></div>
+  <div id="pause-indicator">⏸ PAUSED</div>
+  <div id="nav-dots"></div>
+
+  <div id="slides-container">
+    <!-- Slides injected by JS -->
+  </div>
+
+  <script>
+    (function() {
+      // ── CONFIGURABLE PARAMETERS ──
+      const SLIDE_DURATION = 12000;      // 12 seconds per slide
+      const PAUSE_ON_CLICK = 30000;      // 30 sec pause after manual interaction
+
+      // ── SLIDE DEFINITIONS (TEST: one slide) ──
+      const slides = [
+        {
+          category: 'US Indices',
+          symbols: [
+            { name: 'S&P 500',      symbol: 'AMEX:SPY'   },
+            { name: 'Nasdaq 100',   symbol: 'NASDAQ:QQQ' },
+            { name: 'Dow Jones',    symbol: 'AMEX:DIA'   },
+            { name: 'Russell 2000', symbol: 'AMEX:IWM'   },
+          ]
+        }
+      ];
+
+      // ── DOM REFS ──
+      const container   = document.getElementById('slides-container');
+      const progressBar = document.getElementById('progress-bar');
+      const pauseInd    = document.getElementById('pause-indicator');
+      const navDots     = document.getElementById('nav-dots');
+
+      let currentIndex   = 0;
+      let isPaused       = false;
+      let rotatorTimer   = null;
+      let resumeTimer    = null;
+      let slideStartTime = 0;
+
+      const widgetMap   = new Map();  // slideIndex -> TV widget instances
+
+      // ── BUILD SLIDE ──
+      function buildSlide(slideData, index) {
+        const div = document.createElement('div');
+        div.className = 'slide' + (index === 0 ? ' active' : '');
+        div.dataset.index = index;
+        div.dataset.category = slideData.category;
+
+        // Category title
+        const title = document.createElement('div');
+        title.className = 'slide-title';
+        title.textContent = slideData.category;
+        div.appendChild(title);
+
+        const widgets = [];
+
+        slideData.symbols.forEach(s => {
+          const wrapper = document.createElement('div');
+          wrapper.className = 'chart-wrapper';
+
+          // Label
+          const label = document.createElement('div');
+          label.className = 'chart-label';
+          label.textContent = s.name + ' - ' + s.symbol;
+          wrapper.appendChild(label);
+
+          // Container for TradingView widget
+          const chartContainer = document.createElement('div');
+          chartContainer.className = 'chart-container';
+          wrapper.appendChild(chartContainer);
+
+          div.appendChild(wrapper);
+
+          // Create widget only if this is the first slide (others lazy)
+          if (index === 0) {
+            widgets.push(createWidget(chartContainer, s));
+          } else {
+            if (!widgetMap.has(index)) widgetMap.set(index, []);
+            widgetMap.get(index).push({ container: chartContainer, symbolData: s });
+          }
+        });
+
+        if (index === 0 && widgets.length > 0) {
+          widgetMap.set(0, widgets);
+        }
+
+        return div;
+      }
+
+      function createWidget(container, symbolData) {
+        return new TradingView.widget({
+          container: container,
+          symbol: symbolData.symbol,
+          interval: 'W',
+          theme: 'dark',
+          style: '1',
+          width: '100%',
+          height: '100%',
+          hide_side_toolbar: true,
+          hide_top_toolbar: true,
+          save_image: false,
+          withdateranges: false,
+          studies: [],
+          locale: 'en',
+          timezone: 'Etc/UTC',
+          allow_symbol_change: false,
+          details: false,
+          hotlist: false,
+          calendar: false,
+          hideideas: true,
+        });
+      }
+
+      function lazyLoadSlide(index) {
+        const pending = widgetMap.get(index);
+        if (!pending || !Array.isArray(pending) || pending.length === 0) return;
+        // Only process if items have containers (not already initialized widgets)
+        if (pending[0] && pending[0].container) {
+          const widgets = [];
+          pending.forEach(item => {
+            widgets.push(createWidget(item.container, item.symbolData));
+          });
+          widgetMap.set(index, widgets);
+        }
+      }
+
+      // Build all slides
+      slides.forEach((s, i) => container.appendChild(buildSlide(s, i)));
+      const slideEls = container.querySelectorAll('.slide');
+
+      // Preload first 3 slides
+      lazyLoadSlide(0);
+      setTimeout(() => lazyLoadSlide(1), 500);
+      setTimeout(() => lazyLoadSlide(2), 1000);
+
+      // Nav dots
+      slides.forEach((s, i) => {
+        const dot = document.createElement('span');
+        dot.className = 'dot' + (i === 0 ? ' active' : '');
+        dot.dataset.index = i;
+        dot.title = s.category;
+        dot.addEventListener('click', () => { goToSlide(i); pauseTemporarily(PAUSE_ON_CLICK); });
+        navDots.appendChild(dot);
+      });
+      const dotEls = navDots.querySelectorAll('.dot');
+
+      // ── Navigation ──
+      function goToSlide(index) {
+        if (index === currentIndex && slideEls[index].classList.contains('active')) return;
+        slideEls[currentIndex].classList.remove('active');
+        dotEls[currentIndex].classList.remove('active');
+        currentIndex = index;
+        slideEls[currentIndex].classList.add('active');
+        dotEls[currentIndex].classList.add('active');
+        lazyLoadSlide(currentIndex);
+        restartProgress();
+      }
+
+      function nextSlide() { goToSlide((currentIndex + 1) % slides.length); }
+
+      // ── Progress bar ──
+      function restartProgress() {
+        progressBar.style.transition = 'none';
+        progressBar.style.width = '0%';
+        progressBar.offsetHeight;
+        progressBar.style.transition = 'width ' + SLIDE_DURATION + 'ms linear';
+        progressBar.style.width = '100%';
+        slideStartTime = performance.now();
+      }
+
+      function pauseProgress() {
+        const elapsed = performance.now() - slideStartTime;
+        const remaining = SLIDE_DURATION - elapsed;
+        progressBar.style.transition = 'none';
+        progressBar.style.width = Math.min(100, (elapsed / SLIDE_DURATION) * 100) + '%';
+        return Math.max(0, remaining);
+      }
+
+      function resumeProgress(remaining) {
+        progressBar.style.transition = 'width ' + remaining + 'ms linear';
+        progressBar.style.width = '100%';
+        slideStartTime = performance.now() - (SLIDE_DURATION - remaining);
+      }
+
+      // ── Rotator ──
+      function startRotator() {
+        stopRotator();
+        restartProgress();
+        rotatorTimer = setInterval(nextSlide, SLIDE_DURATION);
+      }
+
+      function stopRotator() {
+        if (rotatorTimer) { clearInterval(rotatorTimer); rotatorTimer = null; }
+      }
+
+      function pauseTemporarily(duration) {
+        if (isPaused) {
+          if (resumeTimer) clearTimeout(resumeTimer);
+        } else {
+          isPaused = true;
+          stopRotator();
+          pauseInd.dataset.remaining = pauseProgress();
+          pauseInd.classList.add('visible');
+        }
+        if (resumeTimer) clearTimeout(resumeTimer);
+        resumeTimer = setTimeout(resumeAuto, duration);
+      }
+
+      function resumeAuto() {
+        if (!isPaused) return;
+        isPaused = false;
+        pauseInd.classList.remove('visible');
+        if (resumeTimer) clearTimeout(resumeTimer);
+        const remaining = parseFloat(pauseInd.dataset.remaining) || SLIDE_DURATION;
+        resumeProgress(remaining);
+        rotatorTimer = setTimeout(() => { nextSlide(); startRotator(); }, remaining);
+      }
+
+      function togglePause() { isPaused ? resumeAuto() : pauseTemporarily(999999); }
+
+      // ── Hover pause ──
+      document.body.addEventListener('mouseenter', () => {
+        if (!isPaused) {
+          stopRotator();
+          pauseInd.dataset.remaining = pauseProgress();
+          pauseInd.classList.add('visible');
+        }
+      });
+      document.body.addEventListener('mouseleave', () => {
+        if (!isPaused) {
+          pauseInd.classList.remove('visible');
+          const rem = parseFloat(pauseInd.dataset.remaining) || SLIDE_DURATION;
+          resumeProgress(rem);
+          if (rotatorTimer) clearTimeout(rotatorTimer);
+          rotatorTimer = setTimeout(() => { nextSlide(); startRotator(); }, rem);
+        }
+      });
+
+      // ── Keyboard ──
+      document.addEventListener('keydown', (e) => {
+        switch (e.key) {
+          case 'ArrowRight':
+            e.preventDefault();
+            goToSlide((currentIndex + 1) % slides.length);
+            pauseTemporarily(PAUSE_ON_CLICK);
+            break;
+          case 'ArrowLeft':
+            e.preventDefault();
+            goToSlide((currentIndex - 1 + slides.length) % slides.length);
+            pauseTemporarily(PAUSE_ON_CLICK);
+            break;
+          case ' ':
+            e.preventDefault();
+            togglePause();
+            break;
+          case 'f': case 'F':
+            e.preventDefault();
+            (document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen)?.call(document.documentElement);
+            pauseTemporarily(30000);
+            break;
+        }
+      });
+
+      document.addEventListener('fullscreenchange', () => {
+        if (!document.fullscreenElement && !isPaused) {
+          const rem = parseFloat(pauseInd.dataset.remaining) || SLIDE_DURATION;
+          pauseInd.classList.remove('visible');
+          resumeProgress(rem);
+          if (rotatorTimer) clearTimeout(rotatorTimer);
+          rotatorTimer = setTimeout(() => { nextSlide(); startRotator(); }, rem);
+        }
+      });
+
+      // ── Init ──
+      startRotator();
+      console.log('📊 Dashboard ready — TradingView JS widget, ' + slides.length + ' slide(s), weekly charts');
+    })();
+  </script>
+</body>
+</html>

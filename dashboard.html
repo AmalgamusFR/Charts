@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trading Dashboard — Weekly</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0a0a0f;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      height: 100vh;
+      width: 100vw;
+      overflow: hidden;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    /* ── Progress bar ── */
+    #progress-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 3px;
+      background: linear-gradient(90deg, #00d4aa, #00aaff);
+      z-index: 100;
+      width: 0%;
+      transition: width 5s linear;
+      border-radius: 0 2px 2px 0;
+      box-shadow: 0 0 8px rgba(0,212,170,0.5);
+    }
+
+    /* ── Slides container ── */
+    #slides-container {
+      position: relative;
+      width: 100%;
+      height: 100%;
+    }
+
+    .slide {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      opacity: 0;
+      z-index: 0;
+      transition: opacity 0.6s ease;
+      pointer-events: none;
+    }
+
+    .slide.active {
+      opacity: 1;
+      z-index: 1;
+      pointer-events: auto;
+    }
+
+    .slide iframe {
+      flex: 1;
+      width: 100%;
+      border: none;
+      background: #0a0a0f;
+      cursor: pointer;
+      min-height: 0;
+    }
+
+    /* ── Slide title ── */
+    .slide-title {
+      flex: 0 0 auto;
+      padding: 10px 16px 6px 16px;
+      font-size: 40px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      color: #fff;
+      text-align: center;
+      background: rgba(0,0,0,0.35);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      text-transform: uppercase;
+      pointer-events: none;
+    }
+
+    /* ── Chart wrapper with label ── */
+    .chart-wrapper {
+      flex: 1;
+      position: relative;
+      min-height: 0;
+    }
+
+    .chart-label {
+      position: absolute;
+      top: 8px;
+      left: 12px;
+      z-index: 10;
+      font-size: 30px;
+      font-weight: 700;
+      color: #fff;
+      text-shadow: 0 0 10px rgba(0,0,0,0.8), 0 0 4px rgba(0,0,0,0.9);
+      pointer-events: none;
+      letter-spacing: 0.03em;
+      opacity: 0.85;
+    }
+
+    .chart-wrapper iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      background: #0a0a0f;
+      cursor: pointer;
+    }
+
+    /* subtle divider between charts */
+    .chart-wrapper + .chart-wrapper {
+      border-top: 1px solid rgba(255,255,255,0.06);
+    }
+
+    /* ── Category label ── */
+    #category-label {
+      position: fixed;
+      top: 12px;
+      left: 16px;
+      z-index: 90;
+      background: rgba(0,0,0,0.65);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      padding: 6px 14px;
+      border-radius: 20px;
+      border: 1px solid rgba(255,255,255,0.12);
+      opacity: 0;
+      transform: translateY(-6px);
+      transition: opacity 0.4s ease, transform 0.4s ease;
+    }
+
+    #category-label.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ── Navigation dots ── */
+    #nav-dots {
+      position: fixed;
+      bottom: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 90;
+      display: flex;
+      gap: 10px;
+      background: rgba(0,0,0,0.55);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      padding: 8px 16px;
+      border-radius: 20px;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.3);
+      cursor: pointer;
+      transition: background 0.3s, transform 0.3s;
+    }
+
+    .dot.active {
+      background: #00d4aa;
+      box-shadow: 0 0 8px rgba(0,212,170,0.6);
+      transform: scale(1.3);
+    }
+
+    .dot:hover {
+      background: rgba(255,255,255,0.6);
+      transform: scale(1.2);
+    }
+
+    .dot.active:hover {
+      background: #00e8bb;
+    }
+
+    /* ── Pause indicator ── */
+    #pause-indicator {
+      position: fixed;
+      top: 12px;
+      right: 16px;
+      z-index: 90;
+      background: rgba(0,0,0,0.55);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      color: #ffaa00;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      padding: 6px 12px;
+      border-radius: 16px;
+      border: 1px solid rgba(255,170,0,0.3);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    #pause-indicator.visible {
+      opacity: 1;
+    }
+
+    /* ── Loading placeholder ── */
+    .iframe-placeholder {
+      flex: 1;
+      width: 100%;
+      background: #0d0d15;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: rgba(255,255,255,0.2);
+      font-size: 13px;
+      letter-spacing: 0.03em;
+    }
+
+    /* ── Responsive fine-tuning ── */
+    @media (max-width: 600px) {
+      #category-label { font-size: 11px; padding: 4px 10px; top: 8px; left: 8px; }
+      #nav-dots { gap: 6px; padding: 6px 10px; bottom: 10px; }
+      .dot { width: 7px; height: 7px; }
+      #pause-indicator { font-size: 10px; padding: 4px 10px; top: 8px; right: 8px; }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="progress-bar"></div>
+  <div id="category-label"></div>
+  <div id="pause-indicator">⏸ PAUSED</div>
+  <div id="nav-dots"></div>
+
+  <div id="slides-container">
+    <!-- Slides injected by JS -->
+  </div>
+
+  <script>
+    (function() {
+      // ─────────────────────────────────────
+      // SLIDE DEFINITIONS
+      // ─────────────────────────────────────
+      const slides = [
+        // =========================
+        // US INDICES
+        // =========================
+        {
+          category: 'US Indices',
+          symbols: [
+            { name: 'S&P 500',      symbol: 'AMEX:SPY'   },
+            { name: 'Nasdaq 100',   symbol: 'NASDAQ:QQQ' },
+            { name: 'Dow Jones',    symbol: 'AMEX:DIA'   },
+            { name: 'Russell 2000', symbol: 'AMEX:IWM'   },
+          ]
+        },
+
+        // =========================
+        // EUROPE
+        // =========================
+        {
+          category: 'Europe Indices',
+          symbols: [
+            { name: 'DAX 40',        symbol: 'XETR:DAX'      },
+            { name: 'CAC 40',        symbol: 'EURONEXT:PX1'  },
+            { name: 'FTSE 100',      symbol: 'LSE:UKX'       },
+            { name: 'Euro Stoxx 50', symbol: 'EUREX:ESTX50'  },
+          ]
+        },
+
+        // =========================
+        // MIDDLE EAST
+        // =========================
+        {
+          category: 'Middle East Indices',
+          symbols: [
+            { name: 'Saudi TASI',    symbol: 'TADAWUL:TASI' },
+            { name: 'Qatar QE',      symbol: 'QE:QEINDEX'   },
+            { name: 'Kuwait Index',  symbol: 'BKK:KWSEIDX'  },
+            { name: 'Israel TA-125', symbol: 'TASE:TA125'   },
+          ]
+        },
+
+        // =========================
+        // ASIA PACIFIC
+        // =========================
+        {
+          category: 'Asia-Pacific Indices',
+          symbols: [
+            { name: 'Nikkei 225',    symbol: 'INDEX:NKY'   },
+            { name: 'Hang Seng',     symbol: 'HSI:HSI'     },
+            { name: 'Shanghai Comp', symbol: 'SSE:000001'  },
+            { name: 'ASX 200',       symbol: 'ASX:XJO'     },
+          ]
+        },
+
+        // =========================
+        // US SECTORS (COMPLETED)
+        // =========================
+        {
+          category: 'US Sectors',
+          symbols: [
+            { name: 'Technology',        symbol: 'AMEX:XLK' },
+            { name: 'Financials',        symbol: 'AMEX:XLF' },
+            { name: 'Energy',            symbol: 'AMEX:XLE' },
+            { name: 'Healthcare',        symbol: 'AMEX:XLV' },
+            { name: 'Consumer Disc.',    symbol: 'AMEX:XLY' },
+            { name: 'Consumer Staples',  symbol: 'AMEX:XLP' },
+            { name: 'Industrials',       symbol: 'AMEX:XLI' },
+            { name: 'Materials',         symbol: 'AMEX:XLB' },
+          ]
+        },
+
+        // =========================
+        // US RATES (1,5,10,20Y)
+        // =========================
+        {
+          category: 'US Rates',
+          symbols: [
+            { name: 'US 1Y',  symbol: 'FRED:DGS1'  },
+            { name: 'US 5Y',  symbol: 'FRED:DGS5'  },
+            { name: 'US 10Y', symbol: 'FRED:DGS10' },
+            { name: 'US 20Y', symbol: 'FRED:DGS20' },
+          ]
+        },
+
+        // =========================
+        // FOREX MAJORS + ASIA
+        // =========================
+        {
+          category: 'Forex',
+          symbols: [
+            { name: 'EUR/USD', symbol: 'OANDA:EURUSD' },
+            { name: 'GBP/USD', symbol: 'OANDA:GBPUSD' },
+            { name: 'USD/JPY', symbol: 'OANDA:USDJPY' },
+            { name: 'AUD/USD', symbol: 'OANDA:AUDUSD' },
+
+            { name: 'USD/CNY', symbol: 'OANDA:USDCNH' },
+            { name: 'USD/KRW', symbol: 'OANDA:USDKRW' },
+            { name: 'USD/RUB', symbol: 'OANDA:USDRUB' },
+            { name: 'USD/JPY (alt)', symbol: 'FX:USDJPY' },
+          ]
+        },
+
+        // =========================
+        // METALS
+        // =========================
+        {
+          category: 'Metals',
+          symbols: [
+            { name: 'Gold',     symbol: 'OANDA:XAUUSD' },
+            { name: 'Silver',   symbol: 'OANDA:XAGUSD' },
+            { name: 'Copper',   symbol: 'COMEX:HG1!'   },
+            { name: 'Platinum', symbol: 'NYMEX:PL1!'   },
+          ]
+        },
+
+        // =========================
+        // ENERGY
+        // =========================
+        {
+          category: 'Energy',
+          symbols: [
+            { name: 'WTI Oil',   symbol: 'NYMEX:CL1!'   },
+            { name: 'Brent Oil', symbol: 'ICEEUR:BRN1!' },
+            { name: 'Nat Gas',   symbol: 'NYMEX:NG1!'   },
+            { name: 'Gasoline',  symbol: 'NYMEX:RB1!'   },
+          ]
+        },
+
+        // =========================
+        // SOFTS
+        // =========================
+        {
+          category: 'Softs',
+          symbols: [
+            { name: 'Coffee',  symbol: 'ICEUS:KC1!' },
+            { name: 'Sugar',   symbol: 'ICEUS:SB1!' },
+            { name: 'Cocoa',   symbol: 'ICEUS:CC1!' },
+            { name: 'Cotton',  symbol: 'ICEUS:CT1!' },
+          ]
+        },
+
+        // =========================
+        // GRAINS
+        // =========================
+        {
+          category: 'Grains',
+          symbols: [
+            { name: 'Corn',   symbol: 'CBOT:ZC1!' },
+            { name: 'Wheat',  symbol: 'CBOT:ZW1!' },
+            { name: 'Soybeans', symbol: 'CBOT:ZS1!' },
+            { name: 'Soy Oil',  symbol: 'CBOT:ZL1!' },
+          ]
+        },
+
+        // =========================
+        // MEATS
+        // =========================
+        {
+          category: 'Meats',
+          symbols: [
+            { name: 'Live Cattle',   symbol: 'CME:LE1!' },
+            { name: 'Feeder Cattle', symbol: 'CME:GF1!' },
+            { name: 'Lean Hogs',     symbol: 'CME:HE1!' },
+          ]
+        },
+
+        // =========================
+        // CRYPTO
+        // =========================
+        {
+          category: 'Cryptos',
+          symbols: [
+            { name: 'Bitcoin',  symbol: 'BINANCE:BTCUSDT' },
+            { name: 'Ethereum', symbol: 'BINANCE:ETHUSDT' },
+            { name: 'Solana',   symbol: 'BINANCE:SOLUSDT' },
+            { name: 'BNB',      symbol: 'BINANCE:BNBUSDT' },
+          ]
+        },
+      ];
+
+      // ─────────────────────────────────────
+      // DOM REFS
+      // ─────────────────────────────────────
+      const container   = document.getElementById('slides-container');
+      const progressBar = document.getElementById('progress-bar');
+      const categoryLabel = document.getElementById('category-label');
+      const pauseInd   = document.getElementById('pause-indicator');
+      const navDots    = document.getElementById('nav-dots');
+
+      // ── CONFIGURABLE PARAMETERS ──
+      const SLIDE_DURATION = 12000;      // 12 seconds per slide
+      const PAUSE_ON_CLICK = 30000;      // 30 sec pause after manual interaction
+
+      let currentIndex    = 0;
+      let isPaused        = false;
+      let rotatorTimer    = null;
+      let resumeTimer     = null;
+      let progressAnimFrame = null;
+      let slideStartTime  = 0;
+
+      // ─────────────────────────────────────
+      // BUILD SLIDES & DOTS
+      // ─────────────────────────────────────
+      function buildSlide(slideData, index) {
+        const div = document.createElement('div');
+        div.className = 'slide' + (index === 0 ? ' active' : '');
+        div.dataset.index = index;
+        div.dataset.category = slideData.category;
+
+        // Category title
+        const title = document.createElement('div');
+        title.className = 'slide-title';
+        title.textContent = slideData.category;
+        div.appendChild(title);
+
+        slideData.symbols.forEach(s => {
+          const wrapper = document.createElement('div');
+          wrapper.className = 'chart-wrapper';
+
+          // Chart label
+          const label = document.createElement('div');
+          label.className = 'chart-label';
+          label.textContent = s.name + ' - ' + s.symbol;
+          wrapper.appendChild(label);
+
+          const iframe = document.createElement('iframe');
+          iframe.title = s.name;
+          // Only set src for the first slide; lazy-load others
+          if (index === 0) {
+            iframe.src = buildUrl(s.symbol);
+          } else {
+            iframe.dataset.src = buildUrl(s.symbol);
+          }
+          iframe.allow = 'fullscreen';
+          iframe.loading = 'lazy';
+          iframe.addEventListener('click', (e) => {
+            e.stopPropagation();
+            requestFullscreen(iframe);
+          });
+          wrapper.appendChild(iframe);
+          div.appendChild(wrapper);
+        });
+
+        return div;
+      }
+
+      function buildUrl(symbol) {
+        return 'https://s.tradingview.com/widgetembed/'
+          + '?symbol=' + encodeURIComponent(symbol)
+          + '&interval=W'
+          + '&hidesidetoolbar=1'
+          + '&hidetoptoolbar=1'
+          + '&theme=dark'
+          + '&style=1'
+          + '&save_image=0'
+          + '&withdateranges=0'
+          + '&studies=[]'
+          + '&utm_source=dashboard&utm_medium=widget&utm_campaign=chart';
+      }
+
+      function requestFullscreen(el) {
+        if (el.requestFullscreen) {
+          el.requestFullscreen().catch(() => {});
+        } else if (el.webkitRequestFullscreen) {
+          el.webkitRequestFullscreen();
+        } else if (el.msRequestFullscreen) {
+          el.msRequestFullscreen();
+        }
+        // Pause while user examines fullscreen chart
+        pauseTemporarily(30000);
+      }
+
+      // Build all slides
+      slides.forEach((s, i) => {
+        container.appendChild(buildSlide(s, i));
+      });
+
+      const slideEls = container.querySelectorAll('.slide');
+
+      // Build nav dots
+      slides.forEach((s, i) => {
+        const dot = document.createElement('span');
+        dot.className = 'dot' + (i === 0 ? ' active' : '');
+        dot.dataset.index = i;
+        dot.title = s.category;
+        dot.addEventListener('click', () => {
+          goToSlide(i);
+          pauseTemporarily(PAUSE_ON_CLICK);
+        });
+        navDots.appendChild(dot);
+      });
+
+      const dotEls = navDots.querySelectorAll('.dot');
+
+      // ─────────────────────────────────────
+      // LAZY LOAD IFRAMES
+      // ─────────────────────────────────────
+      function lazyLoadSlide(index) {
+        const slide = slideEls[index];
+        if (!slide) return;
+        const iframes = slide.querySelectorAll('iframe');
+        iframes.forEach(iframe => {
+          if (!iframe.src && iframe.dataset.src) {
+            iframe.src = iframe.dataset.src;
+            iframe.removeAttribute('data-src');
+          }
+        });
+      }
+
+      // Preload current + next 1 slide
+      function preloadNeighbors(idx) {
+        lazyLoadSlide(idx);
+        lazyLoadSlide((idx + 1) % slides.length);
+        lazyLoadSlide((idx + 2) % slides.length);
+      }
+
+      preloadNeighbors(0);
+
+      // ─────────────────────────────────────
+      // NAVIGATION
+      // ─────────────────────────────────────
+      function goToSlide(index) {
+        if (index === currentIndex && slideEls[index].classList.contains('active')) return;
+
+        // Deactivate current
+        slideEls[currentIndex].classList.remove('active');
+        dotEls[currentIndex].classList.remove('active');
+
+        // Activate new
+        currentIndex = index;
+        slideEls[currentIndex].classList.add('active');
+        dotEls[currentIndex].classList.add('active');
+
+        // Lazy-load neighbors
+        preloadNeighbors(currentIndex);
+
+        // Show category label with animation
+        showCategoryLabel(slides[currentIndex].category);
+
+        // Restart progress bar
+        restartProgress();
+      }
+
+      function nextSlide() {
+        goToSlide((currentIndex + 1) % slides.length);
+      }
+
+      function prevSlide() {
+        goToSlide((currentIndex - 1 + slides.length) % slides.length);
+      }
+
+      // ─────────────────────────────────────
+      // CATEGORY LABEL
+      // ─────────────────────────────────────
+      let labelTimeout = null;
+
+      function showCategoryLabel(text) {
+        categoryLabel.textContent = text;
+        categoryLabel.classList.add('visible');
+        if (labelTimeout) clearTimeout(labelTimeout);
+        labelTimeout = setTimeout(() => {
+          categoryLabel.classList.remove('visible');
+        }, 2000);
+      }
+
+      // Show first label on load
+      showCategoryLabel(slides[0].category);
+
+      // ─────────────────────────────────────
+      // PROGRESS BAR
+      // ─────────────────────────────────────
+      function restartProgress() {
+        // Force reset: remove transition, set to 0, re-add transition, set to 100
+        progressBar.style.transition = 'none';
+        progressBar.style.width = '0%';
+        // Force reflow
+        progressBar.offsetHeight;
+        progressBar.style.transition = 'width ' + SLIDE_DURATION + 'ms linear';
+        progressBar.style.width = '100%';
+        slideStartTime = performance.now();
+      }
+
+      function pauseProgress() {
+        const elapsed = performance.now() - slideStartTime;
+        const remaining = SLIDE_DURATION - elapsed;
+        const currentWidth = Math.min(100, (elapsed / SLIDE_DURATION) * 100);
+        progressBar.style.transition = 'none';
+        progressBar.style.width = currentWidth + '%';
+        return Math.max(0, remaining);
+      }
+
+      function resumeProgress(remaining) {
+        progressBar.style.transition = 'width ' + remaining + 'ms linear';
+        progressBar.style.width = '100%';
+        slideStartTime = performance.now() - (SLIDE_DURATION - remaining);
+      }
+
+      // ─────────────────────────────────────
+      // ROTATOR
+      // ─────────────────────────────────────
+      function startRotator() {
+        stopRotator();
+        restartProgress();
+        rotatorTimer = setInterval(() => {
+          nextSlide();
+        }, SLIDE_DURATION);
+      }
+
+      function stopRotator() {
+        if (rotatorTimer) {
+          clearInterval(rotatorTimer);
+          rotatorTimer = null;
+        }
+      }
+
+      function pauseTemporarily(duration) {
+        if (isPaused) {
+          // Already paused; extend resume timer
+          if (resumeTimer) clearTimeout(resumeTimer);
+        } else {
+          isPaused = true;
+          stopRotator();
+          const remaining = pauseProgress();
+          pauseInd.classList.add('visible');
+          // Store remaining for potential resume
+          pauseInd.dataset.remaining = remaining;
+        }
+        if (resumeTimer) clearTimeout(resumeTimer);
+        resumeTimer = setTimeout(() => {
+          resumeAuto();
+        }, duration);
+      }
+
+      function resumeAuto() {
+        if (!isPaused) return;
+        isPaused = false;
+        pauseInd.classList.remove('visible');
+        if (resumeTimer) clearTimeout(resumeTimer);
+        const remaining = parseFloat(pauseInd.dataset.remaining) || SLIDE_DURATION;
+        resumeProgress(remaining);
+        // Set timeout for next slide based on remaining
+        rotatorTimer = setTimeout(() => {
+          nextSlide();
+          startRotator();
+        }, remaining);
+      }
+
+      function togglePause() {
+        if (isPaused) {
+          resumeAuto();
+        } else {
+          pauseTemporarily(999999); // effectively indefinite
+        }
+      }
+
+      // ─────────────────────────────────────
+      // HOVER PAUSE
+      // ─────────────────────────────────────
+      document.body.addEventListener('mouseenter', () => {
+        if (!isPaused) {
+          stopRotator();
+          const remaining = pauseProgress();
+          pauseInd.dataset.remaining = remaining;
+          pauseInd.classList.add('visible');
+          // We don't set isPaused=true here; it's a "soft" pause via hover
+        }
+      });
+
+      document.body.addEventListener('mouseleave', () => {
+        if (!isPaused) {
+          // Only resume if not explicitly paused
+          pauseInd.classList.remove('visible');
+          const remaining = parseFloat(pauseInd.dataset.remaining) || SLIDE_DURATION;
+          resumeProgress(remaining);
+          if (rotatorTimer) clearTimeout(rotatorTimer);
+          rotatorTimer = setTimeout(() => {
+            nextSlide();
+            startRotator();
+          }, remaining);
+        }
+      });
+
+      // ─────────────────────────────────────
+      // KEYBOARD
+      // ─────────────────────────────────────
+      document.addEventListener('keydown', (e) => {
+        switch (e.key) {
+          case 'ArrowRight':
+            e.preventDefault();
+            goToSlide((currentIndex + 1) % slides.length);
+            pauseTemporarily(PAUSE_ON_CLICK);
+            break;
+          case 'ArrowLeft':
+            e.preventDefault();
+            goToSlide((currentIndex - 1 + slides.length) % slides.length);
+            pauseTemporarily(PAUSE_ON_CLICK);
+            break;
+          case ' ':
+            e.preventDefault();
+            togglePause();
+            break;
+          case 'f':
+          case 'F':
+            e.preventDefault();
+            // Fullscreen the whole page
+            requestFullscreen(document.documentElement);
+            break;
+        }
+      });
+
+      // ─────────────────────────────────────
+      // FULLSCREEN CHANGE LISTENER
+      // ─────────────────────────────────────
+      document.addEventListener('fullscreenchange', () => {
+        if (!document.fullscreenElement) {
+          // Exited fullscreen — resume if not explicitly paused
+          if (!isPaused) {
+            const remaining = parseFloat(pauseInd.dataset.remaining) || SLIDE_DURATION;
+            pauseInd.classList.remove('visible');
+            resumeProgress(remaining);
+            if (rotatorTimer) clearTimeout(rotatorTimer);
+            rotatorTimer = setTimeout(() => {
+              nextSlide();
+              startRotator();
+            }, remaining);
+          }
+        }
+      });
+
+      // ─────────────────────────────────────
+      // INIT
+      // ─────────────────────────────────────
+      startRotator();
+      console.log('📊 Trading Dashboard ready — ' + slides.length + ' categories, ' + (slides.length * 4) + ' weekly charts');
+      console.log('   Hover to pause  |  ← → arrows to navigate  |  Space to pause/resume  |  F for fullscreen');
+    })();
+  </script>
+</body>
+</html>

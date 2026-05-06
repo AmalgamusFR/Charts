@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>📊 Trading Dashboard</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      height: 100%;
+      width: 100%;
+      background: #0a0a0f;
+      color: #eee;
+      font-family: system-ui, sans-serif;
+      overflow: hidden;
+      user-select: none;
+    }
+    #app {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+    #progress-bar {
+      position: fixed;
+      top: 0; left: 0;
+      height: 3px;
+      background: linear-gradient(90deg, #00d4aa, #00aaff);
+      z-index: 100;
+      width: 0%;
+      transition: width 20s linear;
+    }
+    #slides-container {
+      position: relative;
+      width: 100%;
+      height: 100%;
+    }
+    .slide {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      opacity: 0;
+      transition: opacity 0.6s;
+      pointer-events: none;
+    }
+    .slide.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .slide-title {
+      flex-shrink: 0;
+      padding: 14px 20px;
+      font-size: 48px;
+      font-weight: 700;
+      text-align: center;
+      background: rgba(0,0,0,0.4);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      text-transform: uppercase;
+    }
+    .chart-stack {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      background: rgba(255,255,255,0.05);
+      padding: 2px;
+    }
+    .chart-row {
+      position: relative;
+      flex: 1;
+      background: #0d0d15;
+      min-height: 0;
+      overflow: hidden;
+    }
+    .chart-label {
+      position: absolute;
+      top: 6px; left: 12px;
+      z-index: 10;
+      font-size: 30px;        /* 🔥 bigger */
+      font-weight: 700;
+      color: #fff;
+      text-shadow: 0 0 10px rgba(0,0,0,0.8);
+    }
+    canvas {
+      position: absolute;
+      inset: 0;
+      width: 100% !important;
+      height: 100% !important;
+    }
+    #nav-dots {
+      position: fixed;
+      bottom: 18px; left: 50%; transform: translateX(-50%);
+      z-index: 90;
+      display: flex;
+      gap: 10px;
+      background: rgba(0,0,0,0.55);
+      backdrop-filter: blur(8px);
+      padding: 8px 16px;
+      border-radius: 20px;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: rgba(255,255,255,0.3);
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+    .dot.active {
+      background: #00d4aa;
+      box-shadow: 0 0 8px rgba(0,212,170,0.6);
+      transform: scale(1.3);
+    }
+    #pause-indicator {
+      position: fixed;
+      top: 12px; right: 16px;
+      z-index: 90;
+      background: rgba(0,0,0,0.6);
+      color: #ffaa00;
+      font-size: 12px;
+      padding: 6px 12px;
+      border-radius: 16px;
+      border: 1px solid rgba(255,170,0,0.3);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    #pause-indicator.visible { opacity: 1; }
+    #category-label {
+      position: fixed;
+      top: 12px; left: 16px;
+      z-index: 90;
+      background: rgba(0,0,0,0.65);
+      backdrop-filter: blur(8px);
+      color: #fff;
+      font-size: 14px;
+      padding: 6px 14px;
+      border-radius: 20px;
+      border: 1px solid rgba(255,255,255,0.12);
+      opacity: 0;
+      transition: opacity 0.4s, transform 0.4s;
+      transform: translateY(-6px);
+    }
+    #category-label.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="progress-bar"></div>
+    <div id="category-label"></div>
+    <div id="pause-indicator">⏸ PAUSED</div>
+    <div id="nav-dots"></div>
+    <div id="slides-container"></div>
+  </div>
+
+  <script>
+    (function() {
+      "use strict";
+
+      // ── SLIDE DEFINITIONS ──
+      const slides = [
+        { category: "US Indices", symbols: [
+            { name: "S&P 500",      ticker: "SPY" },
+            { name: "Nasdaq 100",   ticker: "QQQ" },
+            { name: "Dow Jones",    ticker: "DIA" },
+            { name: "Russell 2000", ticker: "IWM" }
+        ]},
+        { category: "Europe Indices", symbols: [
+            { name: "DAX 40",        ticker: "GDAXI" },
+            { name: "CAC 40",        ticker: "FCHI" },
+            { name: "FTSE 100",      ticker: "FTSE" },
+            { name: "Euro Stoxx 50", ticker: "STOXX50E" }
+        ]},
+        { category: "Middle East", symbols: [
+            { name: "Saudi TASI",    ticker: "TASI.SR" },
+            { name: "Qatar QE",      ticker: "GNRI.QA" },
+            { name: "Kuwait Index",  ticker: "KWSEIDX" },
+            { name: "Israel TA-125", ticker: "TA125.TA" }
+        ]},
+        { category: "Asia Pacific", symbols: [
+            { name: "Nikkei 225",    ticker: "N225" },
+            { name: "Hang Seng",     ticker: "HSI" },
+            { name: "Shanghai Comp", ticker: "000001.SS" },
+            { name: "ASX 200",       ticker: "AXJO" }
+        ]},
+        { category: "US Sectors 1", symbols: [
+            { name: "Technology",        ticker: "XLK" },
+            { name: "Financials",        ticker: "XLF" },
+            { name: "Energy",            ticker: "XLE" },
+            { name: "Healthcare",        ticker: "XLV" }
+        ]},
+        { category: "US Sectors 2", symbols: [
+            { name: "Consumer Disc.",    ticker: "XLY" },
+            { name: "Consumer Staples",  ticker: "XLP" },
+            { name: "Industrials",       ticker: "XLI" },
+            { name: "Materials",         ticker: "XLB" }
+        ]},
+        { category: "US Rates", symbols: [
+            { name: "US 1Y",  ticker: "DGS1" },
+            { name: "US 5Y",  ticker: "DGS5" },
+            { name: "US 10Y", ticker: "DGS10" },
+            { name: "US 20Y", ticker: "DGS20" }
+        ]},
+        { category: "Forex", symbols: [
+            { name: "EUR/USD", ticker: "EURUSD=X" },
+            { name: "GBP/USD", ticker: "GBPUSD=X" },
+            { name: "USD/JPY", ticker: "JPY=X" },
+            { name: "AUD/USD", ticker: "AUDUSD=X" }
+        ]},
+        { category: "Metals", symbols: [
+            { name: "Gold",     ticker: "GC=F" },
+            { name: "Silver",   ticker: "SI=F" },
+            { name: "Copper",   ticker: "HG=F" },
+            { name: "Platinum", ticker: "PL=F" }
+        ]},
+        { category: "Energy", symbols: [
+            { name: "WTI Oil",   ticker: "CL=F" },
+            { name: "Brent Oil", ticker: "BZ=F" },
+            { name: "Nat Gas",   ticker: "NG=F" },
+            { name: "Gasoline",  ticker: "RB=F" }
+        ]},
+        { category: "Softs", symbols: [
+            { name: "Coffee",  ticker: "KC=F" },
+            { name: "Sugar",   ticker: "SB=F" },
+            { name: "Cocoa",   ticker: "CC=F" },
+            { name: "Cotton",  ticker: "CT=F" }
+        ]},
+        { category: "Grains", symbols: [
+            { name: "Corn",     ticker: "ZC=F" },
+            { name: "Wheat",    ticker: "ZW=F" },
+            { name: "Soybeans", ticker: "ZS=F" },
+            { name: "Soy Oil",  ticker: "ZL=F" }
+        ]},
+        { category: "Meats", symbols: [
+            { name: "Live Cattle",   ticker: "LE=F" },
+            { name: "Feeder Cattle", ticker: "GF=F" },
+            { name: "Lean Hogs",     ticker: "HE=F" }
+        ]},
+        { category: "Cryptos", symbols: [
+            { name: "Bitcoin",  ticker: "BTC-USD" },
+            { name: "Ethereum", ticker: "ETH-USD" },
+            { name: "Solana",   ticker: "SOL-USD" },
+            { name: "BNB",      ticker: "BNB-USD" }
+        ]}
+      ];
+
+      // ── DOM refs ──
+      const container   = document.getElementById("slides-container");
+      const progressBar = document.getElementById("progress-bar");
+      const categoryLabel = document.getElementById("category-label");
+      const pauseInd    = document.getElementById("pause-indicator");
+      const navDots     = document.getElementById("nav-dots");
+      const slideDuration = 20000;
+      const pauseOnClick  = 30000;
+
+      let currentIndex   = 0;
+      let isPaused       = false;
+      let rotatorTimer   = null;
+      let resumeTimer    = null;
+      let slideStartTime = 0;
+
+      // ── Canvas mock drawing with axes ──
+      function drawCanvasMock(canvas, ticker) {
+        const ctx = canvas.getContext("2d");
+        const parent = canvas.parentElement;
+        const rect = parent.getBoundingClientRect();
+        const w = rect.width;
+        const h = rect.height;
+        if (w < 1 || h < 1) return;
+        canvas.width = w;
+        canvas.height = h;
+
+        const bars = 260;            // 🔥 5 years of weekly data (52*5)
+        const marginLeft = 8;
+        const marginRight = 60;      // space for price labels
+        const marginTop = 10;
+        const marginBottom = 24;     // space for date labels
+        const chartW = w - marginLeft - marginRight;
+        const chartH = h - marginTop - marginBottom;
+        const candleWidth = chartW / bars;
+
+        // Generate random walk
+        let price = 100;
+        const data = [];
+        for (let i = 0; i < bars; i++) {
+          const open = price;
+          const drift = 0.2;
+          const change = (Math.random() - 0.48 + drift * 0.01) * 8;
+          const close = open + change;
+          const high = Math.max(open, close) + Math.random() * 4;
+          const low  = Math.min(open, close) - Math.random() * 4;
+          data.push({ open, high, low, close });
+          price = close;
+        }
+
+        // Scale
+        let minP = Infinity, maxP = -Infinity;
+        data.forEach(d => {
+          if (d.low < minP)  minP = d.low;
+          if (d.high > maxP) maxP = d.high;
+        });
+        const range = maxP - minP || 1;
+        const scaleY = chartH / range;
+
+        // Grid lines (horizontal)
+        ctx.strokeStyle = "rgba(255,255,255,0.05)";
+        ctx.lineWidth = 1;
+        const gridLevels = 4;
+        for (let i = 0; i <= gridLevels; i++) {
+          const y = marginTop + chartH * i / gridLevels;
+          ctx.beginPath();
+          ctx.moveTo(marginLeft, y);
+          ctx.lineTo(marginLeft + chartW, y);
+          ctx.stroke();
+        }
+
+        // Vertical grid (monthly-ish)
+        ctx.strokeStyle = "rgba(255,255,255,0.03)";
+        for (let i = 0; i <= 10; i++) {
+          const x = marginLeft + chartW * i / 10;
+          ctx.beginPath();
+          ctx.moveTo(x, marginTop);
+          ctx.lineTo(x, marginTop + chartH);
+          ctx.stroke();
+        }
+
+        // Draw candles
+        data.forEach((d, i) => {
+          const x = marginLeft + i * candleWidth + candleWidth / 2;
+          const yLow  = marginTop + chartH - (d.low  - minP) * scaleY;
+          const yHigh = marginTop + chartH - (d.high - minP) * scaleY;
+          const yOpen = marginTop + chartH - (d.open - minP) * scaleY;
+          const yClose= marginTop + chartH - (d.close- minP) * scaleY;
+          const isUp = d.close >= d.open;
+          ctx.fillStyle   = isUp ? "#26a69a" : "#ef5350";
+          ctx.strokeStyle = isUp ? "#26a69a" : "#ef5350";
+          // wick
+          ctx.beginPath();
+          ctx.moveTo(x, yLow);
+          ctx.lineTo(x, yHigh);
+          ctx.stroke();
+          // body
+          const bodyTop = Math.min(yOpen, yClose);
+          const bodyBottom = Math.max(yOpen, yClose);
+          ctx.fillRect(x - candleWidth * 0.2, bodyTop, candleWidth * 0.4, Math.max(bodyBottom - bodyTop, 1));
+        });
+
+        // ── Y-axis price labels (right side) ──
+        ctx.fillStyle = "rgba(255,255,255,0.45)";
+        ctx.font = "10px system-ui";
+        ctx.textAlign = "left";
+        for (let i = 0; i <= gridLevels; i++) {
+          const y = marginTop + chartH * i / gridLevels;
+          const price = maxP - (i / gridLevels) * range;
+          ctx.fillText(price.toFixed(1), marginLeft + chartW + 4, y + 3);
+        }
+
+        // ── X-axis date labels (bottom) ──
+        ctx.fillStyle = "rgba(255,255,255,0.45)";
+        ctx.font = "10px system-ui";
+        ctx.textAlign = "center";
+        const now = new Date();
+        // Generate fake start date ~5 years ago
+        const startDate = new Date(now);
+        startDate.setFullYear(startDate.getFullYear() - 5);
+        const msPerBar = (now - startDate) / bars;
+        for (let i = 0; i <= 10; i++) {
+          const barIndex = Math.round(bars * i / 10);
+          const date = new Date(startDate.getTime() + barIndex * msPerBar);
+          const x = marginLeft + chartW * i / 10;
+          const label = date.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
+          ctx.fillText(label, x, marginTop + chartH + 14);
+        }
+      }
+
+      // ── Build slide ──
+      function buildSlide(slideData, index) {
+        const div = document.createElement("div");
+        div.className = "slide" + (index === 0 ? " active" : "");
+        div.dataset.index = index;
+
+        const title = document.createElement("div");
+        title.className = "slide-title";
+        title.textContent = slideData.category;
+        div.appendChild(title);
+
+        const stack = document.createElement("div");
+        stack.className = "chart-stack";
+
+        slideData.symbols.forEach(s => {
+          const row = document.createElement("div");
+          row.className = "chart-row";
+
+          const label = document.createElement("div");
+          label.className = "chart-label";
+          label.textContent = s.name + " – " + s.ticker;
+          row.appendChild(label);
+
+          const canvas = document.createElement("canvas");
+          row.appendChild(canvas);
+
+          stack.appendChild(row);
+        });
+
+        div.appendChild(stack);
+        return div;
+      }
+
+      // Build all slides
+      slides.forEach((s, i) => container.appendChild(buildSlide(s, i)));
+      const slideEls = container.querySelectorAll(".slide");
+
+      // ── Nav dots ──
+      slides.forEach((s, i) => {
+        const dot = document.createElement("span");
+        dot.className = "dot" + (i === 0 ? " active" : "");
+        dot.dataset.index = i;
+        dot.title = s.category;
+        dot.addEventListener("click", () => { goToSlide(i); pauseTemporarily(pauseOnClick); });
+        navDots.appendChild(dot);
+      });
+      const dotEls = navDots.querySelectorAll(".dot");
+
+      // ── Draw canvases for a slide ──
+      function drawSlideCharts(slideIndex) {
+        const slide = slideEls[slideIndex];
+        if (!slide) return;
+        const canvases = slide.querySelectorAll("canvas");
+        const symbols = slides[slideIndex].symbols;
+        canvases.forEach((canvas, i) => {
+          const ticker = symbols[i]?.ticker || "";
+          requestAnimationFrame(() => drawCanvasMock(canvas, ticker));
+        });
+      }
+
+      // ── Navigation ──
+      function goToSlide(index) {
+        if (index === currentIndex && slideEls[index].classList.contains("active")) return;
+        slideEls[currentIndex].classList.remove("active");
+        dotEls[currentIndex].classList.remove("active");
+        currentIndex = index;
+        slideEls[currentIndex].classList.add("active");
+        dotEls[currentIndex].classList.add("active");
+        drawSlideCharts(currentIndex);
+        showCategoryLabel(slides[currentIndex].category);
+        restartProgress();
+      }
+
+      function nextSlide() { goToSlide((currentIndex + 1) % slides.length); }
+
+      // ── Category label ──
+      let labelTimeout;
+      function showCategoryLabel(text) {
+        categoryLabel.textContent = text;
+        categoryLabel.classList.add("visible");
+        if (labelTimeout) clearTimeout(labelTimeout);
+        labelTimeout = setTimeout(() => categoryLabel.classList.remove("visible"), 2000);
+      }
+      showCategoryLabel(slides[0].category);
+
+      // ── Progress bar ──
+      function restartProgress() {
+        progressBar.style.transition = "none";
+        progressBar.style.width = "0%";
+        progressBar.offsetHeight;
+        progressBar.style.transition = `width ${slideDuration}ms linear`;
+        progressBar.style.width = "100%";
+        slideStartTime = performance.now();
+      }
+      function pauseProgress() {
+        const elapsed = performance.now() - slideStartTime;
+        const remaining = slideDuration - elapsed;
+        progressBar.style.transition = "none";
+        progressBar.style.width = Math.min(100, (elapsed / slideDuration) * 100) + "%";
+        return Math.max(0, remaining);
+      }
+      function resumeProgress(remaining) {
+        progressBar.style.transition = `width ${remaining}ms linear`;
+        progressBar.style.width = "100%";
+        slideStartTime = performance.now() - (slideDuration - remaining);
+      }
+      function startRotator() {
+        stopRotator();
+        restartProgress();
+        rotatorTimer = setInterval(nextSlide, slideDuration);
+      }
+      function stopRotator() { if (rotatorTimer) { clearInterval(rotatorTimer); rotatorTimer = null; } }
+      function pauseTemporarily(duration) {
+        if (isPaused) {
+          if (resumeTimer) clearTimeout(resumeTimer);
+        } else {
+          isPaused = true;
+          stopRotator();
+          pauseInd.dataset.remaining = pauseProgress();
+          pauseInd.classList.add("visible");
+        }
+        if (resumeTimer) clearTimeout(resumeTimer);
+        resumeTimer = setTimeout(resumeAuto, duration);
+      }
+      function resumeAuto() {
+        if (!isPaused) return;
+        isPaused = false;
+        pauseInd.classList.remove("visible");
+        if (resumeTimer) clearTimeout(resumeTimer);
+        const remaining = parseFloat(pauseInd.dataset.remaining) || slideDuration;
+        resumeProgress(remaining);
+        rotatorTimer = setTimeout(() => { nextSlide(); startRotator(); }, remaining);
+      }
+      function togglePause() { isPaused ? resumeAuto() : pauseTemporarily(999999); }
+
+      // ── Hover ──
+      document.body.addEventListener("mouseenter", () => {
+        if (!isPaused) { stopRotator(); pauseInd.dataset.remaining = pauseProgress(); pauseInd.classList.add("visible"); }
+      });
+      document.body.addEventListener("mouseleave", () => {
+        if (!isPaused) { pauseInd.classList.remove("visible"); const rem = parseFloat(pauseInd.dataset.remaining) || slideDuration; resumeProgress(rem); rotatorTimer = setTimeout(() => { nextSlide(); startRotator(); }, rem); }
+      });
+
+      // ── Keyboard ──
+      document.addEventListener("keydown", e => {
+        switch(e.key) {
+          case "ArrowRight": e.preventDefault(); goToSlide((currentIndex+1)%slides.length); pauseTemporarily(pauseOnClick); break;
+          case "ArrowLeft":  e.preventDefault(); goToSlide((currentIndex-1+slides.length)%slides.length); pauseTemporarily(pauseOnClick); break;
+          case " ": e.preventDefault(); togglePause(); break;
+          case "f": case "F": e.preventDefault(); (document.documentElement.requestFullscreen||document.documentElement.webkitRequestFullscreen)?.call(document.documentElement); pauseTemporarily(30000); break;
+        }
+      });
+      document.addEventListener("fullscreenchange", () => {
+        if (!document.fullscreenElement && !isPaused) { pauseInd.classList.remove("visible"); const rem = parseFloat(pauseInd.dataset.remaining)||slideDuration; resumeProgress(rem); rotatorTimer = setTimeout(()=>{nextSlide();startRotator();}, rem); }
+      });
+
+      // Init
+      drawSlideCharts(0);
+      setTimeout(() => drawSlideCharts(1), 300);
+      setTimeout(() => drawSlideCharts(2), 600);
+      window.addEventListener("resize", () => drawSlideCharts(currentIndex));
+      startRotator();
+      console.log("📊 Dashboard ready – " + slides.length + " slides, 5yr weekly candles, 20s rotation");
+    })();
+  </script>
+</body>
+</html>
